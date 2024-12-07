@@ -167,3 +167,8 @@ cython_debug/
 
 # MacOS
 .DS_Store
+
+
+
+
+.vs

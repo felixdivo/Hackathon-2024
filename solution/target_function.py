@@ -31,7 +31,7 @@ def target_function(
     input: np.ndarray, 
     weight_rad: float = 1., 
     weight_edge: float = 1.,
-    sigma_edge: float = 2.
+    sigma_edge: float = 20.
 ) -> np.ndarray:
     print(input)
     edge_cost_func = 1- normalize(gaussian_filter(input, sigma_edge))
@@ -40,10 +40,11 @@ def target_function(
     r_func = lambda x, y: (x-mean_x)**2 + (y-mean_y)**2
     center_cost_func = normalize(np.fromfunction(r_func, input.shape))
 
+    print(mean_x, mean_y)
+
     return normalize(
         weight_edge*edge_cost_func + weight_rad*center_cost_func
     )
-    
     
 if __name__ == "__main__":
     # ones = np.ones((100, 100))
@@ -54,16 +55,13 @@ if __name__ == "__main__":
     test = cv2.cvtColor(test, cv2.COLOR_RGB2GRAY)
     _, test = cv2.threshold(test, 1, 255, cv2.THRESH_BINARY)
     test = normalize(test)
-    # cv2.imshow("sample", test)
-    # cv2.waitKey(0)
+    
+    cost_func_res = target_function(test, 10)
 
-    cost_func_res = target_function(test)
-
-    cv2.imshow("2D Array", cost_func_res)
+    grad = np.gradient(cost_func_res)
+    grad_norm = np.linalg.norm(grad, axis=0)
+    res = np.array(grad_norm/ np.max(grad_norm))
+    
+    cv2.imshow("2D Array", res)
     cv2.waitKey(0)  # Wait for a key press to close the window
     cv2.destroyAllWindows()
-
-    # grad = np.gradient(cost_func_res)
-    # grad_norm = np.linalg.norm(grad, axis=0)
-    # res = np.array(grad_norm/ np.max(grad_norm)) #+ 1 - input 
-    

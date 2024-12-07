@@ -4,9 +4,7 @@ import numpy as np
 from pathlib import Path
 import sys, os
 
-SCRIPT_PATH: Path = Path(os.path.abspath(sys.argv[0])).parent
-PROJECT_PATH: Path = SCRIPT_PATH.parent
-SAMPLE_PATH: Path = PROJECT_PATH / "TEST_EXAMPLES"
+from .helper import SAMPLE_PATH
 
 
 def normalize(image: np.ndarray) -> np.ndarray:

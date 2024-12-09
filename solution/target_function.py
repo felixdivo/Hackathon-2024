@@ -4,7 +4,10 @@ import numpy as np
 from pathlib import Path
 import sys, os
 
-from .helper import SAMPLE_PATH
+if __name__ == "__main__":
+    from helper import SAMPLE_PATH
+else:
+    from .helper import SAMPLE_PATH
 
 
 def normalize(image: np.ndarray) -> np.ndarray:
@@ -29,13 +32,13 @@ def target_function(
     input: np.ndarray, 
     weight_rad: float = 1., 
     weight_edge: float = 1.,
-    sigma_edge: float = 20.
+    sigma_edge: float = 40.
 ) -> np.ndarray:
     print(input)
-    edge_cost_func = 1- normalize(gaussian_filter(input, sigma_edge))
+    edge_cost_func = (1- normalize(gaussian_filter(input, sigma_edge)))
     
     mean_x, mean_y = part_cog(input)
-    r_func = lambda x, y: (x-mean_x)**2 + (y-mean_y)**2
+    r_func = lambda x, y: ((x-mean_x)**2 + (y-mean_y)**2)
     center_cost_func = normalize(np.fromfunction(r_func, input.shape))
 
     print(mean_x, mean_y)
@@ -54,12 +57,12 @@ if __name__ == "__main__":
     _, test = cv2.threshold(test, 1, 255, cv2.THRESH_BINARY)
     test = normalize(test)
     
-    cost_func_res = target_function(test, 10)
+    cost_func_res = target_function(test)**3
 
     grad = np.gradient(cost_func_res)
     grad_norm = np.linalg.norm(grad, axis=0)
     res = np.array(grad_norm/ np.max(grad_norm))
     
-    cv2.imshow("2D Array", res)
+    cv2.imshow("2D Array", cost_func_res)
     cv2.waitKey(0)  # Wait for a key press to close the window
     cv2.destroyAllWindows()

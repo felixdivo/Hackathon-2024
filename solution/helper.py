@@ -1,5 +1,6 @@
 import sys
 import os
+import glob
 from pathlib import Path
 
 PROJECT_NAME: str = "Hackathon-2024"
@@ -21,3 +22,7 @@ while True:
 # print(PROJECT_PATH)
 SAMPLE_PATH: Path = PROJECT_PATH / "TEST_EXAMPLES"
 DATA_PATH: Path = PROJECT_PATH / "data/Rohdaten"
+
+def find_parts(dir: Path, starts_with: str = "mask") -> list[str]:
+    pattern: Path = dir / f"**/{starts_with}*"
+    return glob.glob(str(pattern), recursive=True)

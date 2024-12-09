@@ -2,3 +2,5 @@ pandas
 numpy
 rich
 opencv
+matplotlib
+mpld3

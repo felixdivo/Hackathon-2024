@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from scipy.ndimage import gaussian_filter
     
-
 from typing import Iterable
 
 if __name__ == "__main__":
@@ -10,16 +9,53 @@ if __name__ == "__main__":
 else:
     from .helper import DATA_PATH, find_parts
 
+def __optimal_grid(n: float) -> tuple[int, int]:
+    sqrt_n = np.sqrt(n)
+    rows = np.floor(sqrt_n)
+    cols = np.ceil(sqrt_n)
+    
+    while rows * cols < n:
+        if cols - rows > 1:
+            rows += 1
+        else:
+            cols += 1
 
-def show_imgs(images: Iterable[np.ndarray]) -> None:
-    for ii, img in enumerate(images):
-        cv2.imshow(f"{ii}", img.astype(np.uint8))
+    return int(rows), int(cols)
+
+def show_imgs(images: dict[str, np.ndarray]) -> None:
+    n_img = len(images)
+    grid_r, grid_c = __optimal_grid(n_img)
+    n_fill = grid_r * grid_c - n_img
+
+    for _,item in images.items():
+        img_h, img_w = item.shape # fuck it
+        break
+
+    grid = np.zeros((grid_r * img_h, grid_c * img_w, 3), dtype=np.uint8)
+    
+    for idx, (label, img) in enumerate(images.items()):
+        img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        img = cv2.putText(
+            img=img, 
+            text=label, 
+            org=(int(img.shape[0]/15), int(img.shape[1]/5)), 
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX, 
+            fontScale=.7, 
+            color=(0,0,255), 
+            thickness=2, 
+            lineType=cv2.LINE_AA, 
+            bottomLeftOrigin=False
+        )
+        row, col = divmod(idx, grid_c)
+        grid[row * img_h:(row + 1) * img_h, col * img_w:(col + 1) * img_w, :] = img
+    
+    cv2.imshow("IMAGES", grid)
     cv2.waitKey(1)
     input()
     cv2.destroyAllWindows() 
 
 def normalize(image: np.ndarray) -> np.ndarray:
-    return (image - np.min(image)) / (np.max(image) - np.min(image))
+    return (255 * ((image - np.min(image)) / (np.max(image) - np.min(image)))).astype(np.uint8)
 
 def grad(image: np.ndarray) -> np.ndarray:
     image = np.gradient(image)
@@ -43,7 +79,7 @@ def smooth(image: np.ndarray) -> np.ndarray:
     
 def canny_edge(image: np.ndarray) -> np.ndarray:
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
-    ret = (255 * normalize(clahe.apply(image))).astype(np.uint8)
+    ret = normalize(clahe.apply(image))
     ret =  cv2.Canny(ret, 150, 150, L2gradient=True)
     kernel = np.ones((5,5))
     ret = cv2.morphologyEx(ret, cv2.MORPH_CLOSE, kernel)
@@ -51,6 +87,10 @@ def canny_edge(image: np.ndarray) -> np.ndarray:
     # ret = cv2.morphologyEx(ret, cv2.MORPH_ERODE, kernel)
     return ret
 
+def clahe(image: np.ndarray) -> np.ndarray:
+    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
+    return normalize(clahe.apply(image))
+    
 def fill_edge(edge: np.ndarray) -> np.ndarray:
     _, edge = cv2.threshold(edge, 200, 255, cv2.THRESH_BINARY)        
     contours, _ = cv2.findContours(edge, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -93,12 +133,13 @@ if __name__ == "__main__":
         canny_edge(l_channel) +canny_edge(s) + canny_edge(v) + canny_edge(std_dev(x, win_size)) + canny_edge(std_dev(x, win_size)),#+ canny_edge(std_dev(r, win_size))+canny_edge(std_dev(g, win_size))+canny_edge(std_dev(b, win_size)), 
         0, 255
     )   
-    show_imgs([
-        # std_dev(x, win_size),
-        # std_dev(y, win_size),
-        # 255* grad(IMG_BW),
-        # 255* normalize(l_channel),
-        IMG_BW,
-        smooth(fill_edge(TEST)-TEST),
-        TEST
-    ])
+
+    show_imgs({
+        "BW": IMG_BW,
+        # "std x": std_dev(x, win_size),
+        # "std y": std_dev(y, win_size),
+        "grad bw": normalize(grad(IMG_BW)),
+        # "LAB sc Lch": normalize(l_channel),
+        # "threshold": smooth(fill_edge(TEST)-TEST),
+        # "test edge overlap": TEST,
+    })

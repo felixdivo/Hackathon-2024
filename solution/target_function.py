@@ -1,7 +1,8 @@
 import cv2
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import center_of_mass, distance_transform_edt
 import numpy as np
 from pathlib import Path
+import matplotlib.pyplot as plt
 import sys, os
 
 if __name__ == "__main__":
@@ -13,39 +14,23 @@ else:
 def normalize(image: np.ndarray) -> np.ndarray:
     return (image - np.min(image)) / (np.max(image) - np.min(image))
 
-def part_cog(input: np.ndarray) -> tuple[float, float]:
-    total_ones = np.sum(input == 1)
-    x_dist = np.sum(input, axis=0)
-
-    mean_x = np.sum(
-        [ii * x_dist[ii] for ii in range(input.shape[1])]
-    ) / total_ones
-
-    y_dist = np.sum(input, axis=1)
-    mean_y = np.sum(
-        [ii * y_dist[ii] for ii in range(input.shape[0])]
-    ) / total_ones
-
-    return mean_x, mean_y
-
 def target_function(
     input: np.ndarray, 
-    weight_rad: float = 1., 
-    weight_edge: float = 1.,
-    sigma_edge: float = 40.
+    weight_com: float = .01, 
+    exp_com: float = 0.5,
+    weight_edge: float = .01,
+    exp_edge: float = 1.5,
 ) -> np.ndarray:
     print(input)
-    edge_cost_func = (1- normalize(gaussian_filter(input, sigma_edge)))
+    dist_from_edge = distance_transform_edt(1-input)
+    edge_cost = ( weight_edge * dist_from_edge ) ** exp_edge
     
-    mean_x, mean_y = part_cog(input)
-    r_func = lambda x, y: ((x-mean_x)**2 + (y-mean_y)**2)
-    center_cost_func = normalize(np.fromfunction(r_func, input.shape))
+    com_x, com_y = center_of_mass(input)
+    rows, cols = np.indices(np.shape(input))    
+    dist_from_com = np.sqrt((rows - com_x)**2 + (cols - com_y)**2)
+    com_cost = ( weight_com * dist_from_com ) ** exp_com
 
-    print(mean_x, mean_y)
-
-    return normalize(
-        weight_edge*edge_cost_func + weight_rad*center_cost_func
-    )
+    return edge_cost + com_cost
     
 if __name__ == "__main__":
     # ones = np.ones((100, 100))
@@ -57,12 +42,21 @@ if __name__ == "__main__":
     _, test = cv2.threshold(test, 1, 255, cv2.THRESH_BINARY)
     test = normalize(test)
     
-    cost_func_res = target_function(test)**3
+    cost_func_res = target_function(test)
 
     grad = np.gradient(cost_func_res)
     grad_norm = np.linalg.norm(grad, axis=0)
     res = np.array(grad_norm/ np.max(grad_norm))
     
-    cv2.imshow("2D Array", cost_func_res)
-    cv2.waitKey(0)  # Wait for a key press to close the window
-    cv2.destroyAllWindows()
+    fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+    X = np.arange(cost_func_res.shape[1])
+    Y = np.arange(cost_func_res.shape[0])
+    X, Y = np.meshgrid(X, Y)
+    surf = ax.plot_surface(X, Y, cost_func_res)
+    plt.show()
+
+    # cv2.namedWindow("CV2_test", cv2.WINDOW_KEEPRATIO)
+    # cv2.resizeWindow("CV2_test", 600, 600)
+    # cv2.imshow("CV2_test", cost_func_res)
+    # cv2.waitKey(0)  # Wait for a key press to close the window
+    # cv2.destroyAllWindows()

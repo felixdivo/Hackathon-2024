@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
-from scipy.ndimage import gaussian_filter
+# from scipy.ndimage import gaussian_filter
+import pandas as pd    
+from sklearn.decomposition import PCA
+    
+    
     
 from typing import Iterable
 
@@ -80,14 +84,17 @@ def smooth(image: np.ndarray) -> np.ndarray:
     
 def canny_edge(image: np.ndarray) -> np.ndarray:
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
-    ret = normalize(clahe.apply(image))
-    ret =  cv2.Canny(ret, 150, 150, L2gradient=True)
-    kernel = np.ones((5,5))
-    ret = cv2.morphologyEx(ret, cv2.MORPH_CLOSE, kernel)
-    # kernel = np.ones((3,3))
-    # ret = cv2.morphologyEx(ret, cv2.MORPH_OPEN, kernel)
-    return normalize(ret)
-
+    image = normalize(clahe.apply(image))
+    med_val = np.median(image) 
+    # print(f"MED_VAL: {med_val}")
+    lower = int(max(0 ,1.5*med_val))
+    upper = int(min(255,3*med_val))
+    return cv2.Canny(image, lower, upper, L2gradient=True)
+    
+def morph_ex(image: np.ndarray) -> np.ndarray:
+    kernel = np.ones((3,3))
+    return  normalize(cv2.morphologyEx(image, cv2.MORPH_ERODE, kernel))
+    
 def clahe(image: np.ndarray) -> np.ndarray:
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
     return normalize(clahe.apply(image))
@@ -126,21 +133,24 @@ def generate_feature_stack(image: np.ndarray) -> np.ndarray:
         "lab_l": l, 
         "lab_a": x, 
         "lab_b": y, 
-        # "hsv_h": h, 
+        "hsv_h": h, 
         "hsv_s": s, 
         "hsv_v": v, 
         # "rgb_r": r, 
         # "rgb_g": g, 
         # "rgb_b": b,
     }
-
     DATA = {}
     for key, c in channels.items():
         # DATA.append(c)
-        DATA[f"{key}_grad"] = k_means_clust(grad(c))#.flatten()
-        DATA[f"{key}_mean_dev"] = k_means_clust(canny_edge(abs_mean_dev(c)))#.flatten()
-        DATA[f"{key}_std"] = k_means_clust(canny_edge(std_dev(c, win_size)))#.flatten()
-        DATA[f"{key}_edge"] = k_means_clust(canny_edge(c))#.flatten()
+        DATA[f"{key}_grad"] = grad(clahe(c))#.flatten()
+        DATA[f"{key}_mean_dev_edge"] = canny_edge(abs_mean_dev(clahe(c)))#.flatten()
+        DATA[f"{key}_std"] = abs_mean_dev(std_dev(c, win_size))#.flatten()
+        DATA[f"{key}_edge"] = canny_edge(c)#.flatten()
+        DATA[f"{key}"] = normalize(c)
+        DATA[f"{key}_mean_dev"] = abs_mean_dev(c)
+        DATA[f"{key}_blurred"] = canny_edge(c)
+        
 
     return DATA
 
@@ -154,49 +164,47 @@ def k_means_clust(image: np.ndarray, n: int = 2) -> np.ndarray:
     segmented_data = centers[labels.flatten()] # Mapping labels to center points( RGB Value)
     return normalize(segmented_data.reshape((image.shape)))
 
-
-if __name__ == "__main__":
-    part_id = 30
-    FILE_LIST = find_parts(DATA_PATH / f"part_{part_id}")
-    NAME = FILE_LIST[1]
-    print(f"LOADING: {NAME}")
-    image = cv2.imread(NAME)
-    b_size = 20
-    image = cv2.copyMakeBorder(image, b_size, b_size, b_size, b_size, cv2.BORDER_CONSTANT)
-    DATA = generate_feature_stack(image)
-    show_imgs(DATA)
-
-    import pandas as pd
-
-    for key,feature in DATA.items():
-        DATA[key] = feature.flatten()
-    df = pd.DataFrame().from_dict(DATA)
-
-    from sklearn.decomposition import PCA
-    import seaborn as sb
-
-    N_COMP = 10
+def pca_transform(DATA: pd.DataFrame, N_COMP: int = 10) -> dict[str, np.ndarray]:
     pca = PCA(n_components=N_COMP)
-
-    pca.fit(df)
-
+    pca.fit(DATA)
     pca_feature_weights = pd.DataFrame(
-        pca.components_, columns=df.columns, index=[f"PC{ii}" for ii in range(N_COMP)] 
+        pca.components_, columns=DATA.columns, index=[f"PC{ii}" for ii in range(N_COMP)] 
     )
-
-    print(pca_feature_weights)
-
+    # print(pca_feature_weights)
     pca_features = pd.DataFrame({
-        col: df.to_numpy() @ pca_feature_weights.loc[col, :]
+        col: DATA.to_numpy() @ pca_feature_weights.loc[col, :]
         for col in pca_feature_weights.index
     })
-
     # print(pca_features.info())
-    print(sum(pca.explained_variance_ratio_))
+    # print(sum(pca.explained_variance_ratio_))
     
     format = image.shape[:-1]
     PCA_DATA = {} 
     for key, val in pca_features.items():
-        PCA_DATA[key] = normalize(val.to_numpy()).reshape(format)
+        X = k_means_clust(normalize(val.to_numpy().reshape(format)), 4)
+        # print(f"{key} UNIQUE VAL: {np.unique(X)}")
+        # X[X < np.max(X)] = 0
+        PCA_DATA[key] = X
 
-    show_imgs(PCA_DATA)
+    return PCA_DATA
+
+if __name__ == "__main__":
+    part_id = 1
+    FILE_LIST = find_parts(DATA_PATH / f"part_{part_id}")
+    NAME = FILE_LIST[1]
+    print(f"LOADING: {NAME}")
+    image = cv2.imread(NAME)
+    image = cv2.copyMakeBorder(image, 20, 20, 20, 20, cv2.BORDER_CONSTANT)
+
+    DATA = generate_feature_stack(image)
+    # show_imgs(DATA)
+    for key,feature in DATA.items():
+        DATA[key] = feature.flatten()
+    DATA = pd.DataFrame().from_dict(DATA)
+    DATA = pca_transform(DATA)        
+    
+    show_imgs(DATA)
+
+    # print(f"ELAPSED TIME: {time()-st:.5f}s")
+    
+    

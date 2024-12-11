@@ -34,7 +34,8 @@ def show_imgs(images: dict[str, np.ndarray]) -> None:
     grid = np.zeros((grid_r * img_h, grid_c * img_w, 3), dtype=np.uint8)
     
     for idx, (label, img) in enumerate(images.items()):
-        img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        if len(img.shape) != 3:
+            img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR)
         img = cv2.putText(
             img=img, 
             text=label, 
@@ -68,7 +69,7 @@ def std_dev(image: np.ndarray, win_size: tuple[int]) -> np.ndarray:
     return (255 * ret_val / np.max(ret_val)).astype(np.uint8)
 
 def abs_mean_dev(image: np.ndarray) -> np.ndarray:
-    return np.abs(image - np.mean(image))
+    return normalize(np.abs(image - np.mean(image)))
 
 def smooth(image: np.ndarray) -> np.ndarray:
     kernel = np.ones((5,5))
@@ -83,9 +84,9 @@ def canny_edge(image: np.ndarray) -> np.ndarray:
     ret =  cv2.Canny(ret, 150, 150, L2gradient=True)
     kernel = np.ones((5,5))
     ret = cv2.morphologyEx(ret, cv2.MORPH_CLOSE, kernel)
-    # kernel = np.ones((1,1))
-    # ret = cv2.morphologyEx(ret, cv2.MORPH_ERODE, kernel)
-    return ret
+    # kernel = np.ones((3,3))
+    # ret = cv2.morphologyEx(ret, cv2.MORPH_OPEN, kernel)
+    return normalize(ret)
 
 def clahe(image: np.ndarray) -> np.ndarray:
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
@@ -109,37 +110,93 @@ def fill_edge(edge: np.ndarray) -> np.ndarray:
     cv2.floodFill(filled_image, mask, seed_point, 255)
     return filled_image
 
-if __name__ == "__main__":
-    part_id = 4
-    FILE_LIST = find_parts(DATA_PATH / f"part_{part_id}")
-    NAME = FILE_LIST[3]
-    print(f"LOADING: {NAME}")
-    IMG = cv2.imread(NAME)
-    b_size = 20
-    IMG = cv2.copyMakeBorder(IMG, b_size, b_size, b_size, b_size, cv2.BORDER_CONSTANT)
-
-    IMG_RGB = IMG.copy()
-    IMG_LAB = cv2.cvtColor(IMG, cv2.COLOR_BGR2LAB)
-    IMG_HSV = cv2.cvtColor(IMG, cv2.COLOR_BGR2HSV)
-    IMG_BW = cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
+def generate_feature_stack(image: np.ndarray) -> np.ndarray:
+    IMG_RGB = image.copy()
+    IMG_LAB = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    IMG_HSV = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     
-    l_channel, x, y = cv2.split(IMG_LAB)
+    bw = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    l, x, y = cv2.split(IMG_LAB)
     h, s, v = cv2.split(IMG_HSV)
     r, g, b, = cv2.split(IMG_RGB)
     
-    win_size = (np.array(IMG_BW.shape) / 50).astype(np.int16)
-    
-    TEST = np.clip(
-        canny_edge(l_channel) +canny_edge(s) + canny_edge(v) + canny_edge(std_dev(x, win_size)) + canny_edge(std_dev(x, win_size)),#+ canny_edge(std_dev(r, win_size))+canny_edge(std_dev(g, win_size))+canny_edge(std_dev(b, win_size)), 
-        0, 255
-    )   
+    win_size = (np.array(bw.shape) / 50).astype(np.int16)
+    channels = {
+        "bw": bw, 
+        "lab_l": l, 
+        "lab_a": x, 
+        "lab_b": y, 
+        # "hsv_h": h, 
+        "hsv_s": s, 
+        "hsv_v": v, 
+        # "rgb_r": r, 
+        # "rgb_g": g, 
+        # "rgb_b": b,
+    }
 
-    show_imgs({
-        "BW": IMG_BW,
-        # "std x": std_dev(x, win_size),
-        # "std y": std_dev(y, win_size),
-        "grad bw": normalize(grad(IMG_BW)),
-        # "LAB sc Lch": normalize(l_channel),
-        # "threshold": smooth(fill_edge(TEST)-TEST),
-        # "test edge overlap": TEST,
+    DATA = {}
+    for key, c in channels.items():
+        # DATA.append(c)
+        DATA[f"{key}_grad"] = k_means_clust(grad(c))#.flatten()
+        DATA[f"{key}_mean_dev"] = k_means_clust(canny_edge(abs_mean_dev(c)))#.flatten()
+        DATA[f"{key}_std"] = k_means_clust(canny_edge(std_dev(c, win_size)))#.flatten()
+        DATA[f"{key}_edge"] = k_means_clust(canny_edge(c))#.flatten()
+
+    return DATA
+
+def k_means_clust(image: np.ndarray, n: int = 2) -> np.ndarray:
+    pixel_vals = image.flatten().astype(np.float32)
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.85) 
+    retval, labels, centers = cv2.kmeans(pixel_vals, n, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS) 
+
+    # convert data into 8-bit values 
+    centers = np.uint8(centers) 
+    segmented_data = centers[labels.flatten()] # Mapping labels to center points( RGB Value)
+    return normalize(segmented_data.reshape((image.shape)))
+
+
+if __name__ == "__main__":
+    part_id = 30
+    FILE_LIST = find_parts(DATA_PATH / f"part_{part_id}")
+    NAME = FILE_LIST[1]
+    print(f"LOADING: {NAME}")
+    image = cv2.imread(NAME)
+    b_size = 20
+    image = cv2.copyMakeBorder(image, b_size, b_size, b_size, b_size, cv2.BORDER_CONSTANT)
+    DATA = generate_feature_stack(image)
+    show_imgs(DATA)
+
+    import pandas as pd
+
+    for key,feature in DATA.items():
+        DATA[key] = feature.flatten()
+    df = pd.DataFrame().from_dict(DATA)
+
+    from sklearn.decomposition import PCA
+    import seaborn as sb
+
+    N_COMP = 10
+    pca = PCA(n_components=N_COMP)
+
+    pca.fit(df)
+
+    pca_feature_weights = pd.DataFrame(
+        pca.components_, columns=df.columns, index=[f"PC{ii}" for ii in range(N_COMP)] 
+    )
+
+    print(pca_feature_weights)
+
+    pca_features = pd.DataFrame({
+        col: df.to_numpy() @ pca_feature_weights.loc[col, :]
+        for col in pca_feature_weights.index
     })
+
+    # print(pca_features.info())
+    print(sum(pca.explained_variance_ratio_))
+    
+    format = image.shape[:-1]
+    PCA_DATA = {} 
+    for key, val in pca_features.items():
+        PCA_DATA[key] = normalize(val.to_numpy()).reshape(format)
+
+    show_imgs(PCA_DATA)

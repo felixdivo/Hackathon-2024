@@ -4,7 +4,9 @@ import numpy as np
 import pandas as pd    
 from sklearn.decomposition import PCA
     
-    
+# import the necessary packages
+from skimage import feature
+import numpy as np
     
 from typing import Iterable
 
@@ -29,17 +31,14 @@ def __optimal_grid(n: float) -> tuple[int, int]:
 def show_imgs(images: dict[str, np.ndarray]) -> None:
     n_img = len(images)
     grid_r, grid_c = __optimal_grid(n_img)
-    n_fill = grid_r * grid_c - n_img
-
-    for _,item in images.items():
-        img_h, img_w = item.shape # fuck it
-        break
-
-    grid = np.zeros((grid_r * img_h, grid_c * img_w, 3), dtype=np.uint8)
-    
+    grid = None
     for idx, (label, img) in enumerate(images.items()):
+        if grid is None:
+            img_h, img_w = img.shape[:2]
+            grid = np.zeros((grid_r * img.shape[0], grid_c * img.shape[1], 3), dtype=np.uint8)
         if len(img.shape) != 3:
             img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        
         img = cv2.putText(
             img=img, 
             text=label, 
@@ -83,12 +82,12 @@ def smooth(image: np.ndarray) -> np.ndarray:
     return image
     
 def canny_edge(image: np.ndarray) -> np.ndarray:
-    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
+    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(5,5))
     image = normalize(clahe.apply(image))
     med_val = np.median(image) 
     # print(f"MED_VAL: {med_val}")
-    lower = int(max(0 ,1.5*med_val))
-    upper = int(min(255,3*med_val))
+    lower = int(max(0 ,.7*med_val))
+    upper = int(min(255,1.3*med_val))
     return cv2.Canny(image, lower, upper, L2gradient=True)
     
 def morph_ex(image: np.ndarray) -> np.ndarray:
@@ -98,7 +97,34 @@ def morph_ex(image: np.ndarray) -> np.ndarray:
 def clahe(image: np.ndarray) -> np.ndarray:
     clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(8,8))
     return normalize(clahe.apply(image))
+
+def apply_gabor_filter(image: np.ndarray, theta=0) -> tuple[np.ndarray]:
+    """
+    Apply a Gabor filter to the input image.
     
+    Parameters:
+    - image: Input grayscale image.
+    - kernel_size: Size of the Gabor kernel.
+    - sigma: Standard deviation of the Gaussian function.
+    - theta: Orientation of the Gabor filter in radians.
+    - lambd: Wavelength of the sinusoidal component.
+    - gamma: Spatial aspect ratio (ellipticity).
+    - psi: Phase offset.
+    
+    Returns:
+    - filtered_image: Output image after applying the Gabor filter.
+    """
+    kernel_size = int(np.min(image.shape[:2]) / 20)
+    sigma = np.min(image.shape[:2]) / 120
+    lambd = np.min(image.shape[:2]) / 60
+    gamma = np.min(image.shape[:2]) / 450
+    psi = 0
+    # print(kernel_size, sigma, lambd, gamma)
+    gabor_kernel = cv2.getGaborKernel((kernel_size, kernel_size), sigma, theta, lambd, gamma, psi, ktype=cv2.CV_32F)
+    filtered_image = cv2.filter2D(image, cv2.CV_8UC3, gabor_kernel)
+    
+    return filtered_image, gabor_kernel
+
 def fill_edge(edge: np.ndarray) -> np.ndarray:
     _, edge = cv2.threshold(edge, 200, 255, cv2.THRESH_BINARY)        
     contours, _ = cv2.findContours(edge, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -136,22 +162,41 @@ def generate_feature_stack(image: np.ndarray) -> np.ndarray:
         "hsv_h": h, 
         "hsv_s": s, 
         "hsv_v": v, 
-        # "rgb_r": r, 
-        # "rgb_g": g, 
-        # "rgb_b": b,
+        "rgb_r": r, 
+        "rgb_g": g, 
+        "rgb_b": b,
     }
     DATA = {}
+    theta_values = [
+        0, 
+        np.pi/8, 
+        np.pi/4, 
+        3*np.pi/8, 
+        np.pi/2, 
+        5*np.pi/8, 
+        3*np.pi/4, 
+        7*np.pi/8,
+    ]
     for key, c in channels.items():
-        # DATA.append(c)
         DATA[f"{key}_grad"] = grad(clahe(c))#.flatten()
         DATA[f"{key}_mean_dev_edge"] = canny_edge(abs_mean_dev(clahe(c)))#.flatten()
         DATA[f"{key}_std"] = abs_mean_dev(std_dev(c, win_size))#.flatten()
         DATA[f"{key}_edge"] = canny_edge(c)#.flatten()
         DATA[f"{key}"] = normalize(c)
         DATA[f"{key}_mean_dev"] = abs_mean_dev(c)
-        DATA[f"{key}_blurred"] = canny_edge(c)
+        DATA[f"{key}_laplacian"] = cv2.Laplacian(c, cv2.CV_64F)
         
-
+        GAB = np.zeros_like(c,dtype=np.float64)
+        for deg in theta_values:
+            X,_ = apply_gabor_filter(clahe(c), theta=deg)
+            X = k_means_clust(X, 4)
+            X[X < np.max(X)] = 0
+            GAB += normalize(X)
+        DATA[f"{key}_gabor"] = clahe(normalize(GAB))  
+        
+        
+        
+        
     return DATA
 
 def k_means_clust(image: np.ndarray, n: int = 2) -> np.ndarray:
@@ -176,12 +221,12 @@ def pca_transform(DATA: pd.DataFrame, N_COMP: int = 10) -> dict[str, np.ndarray]
         for col in pca_feature_weights.index
     })
     # print(pca_features.info())
-    # print(sum(pca.explained_variance_ratio_))
+    print(f"PCA VARIANCE RATIO OF {N_COMP} Elements: {sum(pca.explained_variance_ratio_):.3f}/1")
     
     format = image.shape[:-1]
     PCA_DATA = {} 
     for key, val in pca_features.items():
-        X = k_means_clust(normalize(val.to_numpy().reshape(format)), 4)
+        X = normalize(val.to_numpy().reshape(format))
         # print(f"{key} UNIQUE VAL: {np.unique(X)}")
         # X[X < np.max(X)] = 0
         PCA_DATA[key] = X
@@ -189,22 +234,28 @@ def pca_transform(DATA: pd.DataFrame, N_COMP: int = 10) -> dict[str, np.ndarray]
     return PCA_DATA
 
 if __name__ == "__main__":
-    part_id = 1
+    part_id = 2
     FILE_LIST = find_parts(DATA_PATH / f"part_{part_id}")
     NAME = FILE_LIST[1]
+    # NAME = "/home/user0/USERCODE/Hackathon-2024/data/Rohdaten/part_2/mask_20241203-164737-095.png"
     print(f"LOADING: {NAME}")
     image = cv2.imread(NAME)
     image = cv2.copyMakeBorder(image, 20, 20, 20, 20, cv2.BORDER_CONSTANT)
-
+    image = cv2.GaussianBlur(image, (3,3), 0)
+    image = cv2.bilateralFilter(image, 31, 75, 150)
+    img_bw = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # show_imgs({
+    #     "filt": img_bw.copy(),
+    #     "binary": normalize(feature.local_binary_pattern(img_bw, 8,1, method="nri_uniform")) 
+    # })
+    # image_hist = clahe(image_bw)
+    # image_filt_filt = cv2.bilateralFilter(image_hist, 15, 75, 75)
+    
     DATA = generate_feature_stack(image)
     # show_imgs(DATA)
     for key,feature in DATA.items():
         DATA[key] = feature.flatten()
     DATA = pd.DataFrame().from_dict(DATA)
-    DATA = pca_transform(DATA)        
-    
+    DATA = pca_transform(DATA, 3)        
     show_imgs(DATA)
-
-    # print(f"ELAPSED TIME: {time()-st:.5f}s")
-    
-    

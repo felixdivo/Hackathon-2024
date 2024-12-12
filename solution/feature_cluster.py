@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
     
 # import the necessary packages
-from skimage import feature
+import skimage as ski
 import numpy as np
     
 from typing import Iterable
@@ -36,9 +36,9 @@ def show_imgs(images: dict[str, np.ndarray]) -> None:
         if grid is None:
             img_h, img_w = img.shape[:2]
             grid = np.zeros((grid_r * img.shape[0], grid_c * img.shape[1], 3), dtype=np.uint8)
+        
         if len(img.shape) != 3:
             img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-        
         img = cv2.putText(
             img=img, 
             text=label, 
@@ -59,7 +59,7 @@ def show_imgs(images: dict[str, np.ndarray]) -> None:
     cv2.destroyAllWindows() 
 
 def normalize(image: np.ndarray) -> np.ndarray:
-    return (255 * ((image - np.min(image)) / (np.max(image) - np.min(image)))).astype(np.uint8)
+    return np.asarray(255 * ((image - np.min(image)) / (np.max(image) - np.min(image)))).astype(np.uint8)
 
 def grad(image: np.ndarray) -> np.ndarray:
     image = np.gradient(image)
@@ -234,7 +234,7 @@ def pca_transform(DATA: pd.DataFrame, N_COMP: int = 10) -> dict[str, np.ndarray]
     return PCA_DATA
 
 if __name__ == "__main__":
-    part_id = 2
+    part_id = 1
     FILE_LIST = find_parts(DATA_PATH / f"part_{part_id}")
     NAME = FILE_LIST[1]
     # NAME = "/home/user0/USERCODE/Hackathon-2024/data/Rohdaten/part_2/mask_20241203-164737-095.png"
@@ -245,17 +245,30 @@ if __name__ == "__main__":
     image = cv2.bilateralFilter(image, 31, 75, 150)
     img_bw = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
-    # show_imgs({
-    #     "filt": img_bw.copy(),
-    #     "binary": normalize(feature.local_binary_pattern(img_bw, 8,1, method="nri_uniform")) 
-    # })
+    # ski.feature.canny(img_bw, sigma=3)
+    from skimage import filters
+    from skimage import feature
+    from skimage.morphology import disk
+    
+    
+    show_imgs({
+        "filt": img_bw.copy(),
+        # "binary": normalize(ski.feature.local_binary_pattern(img_bw, 8,1, method="nri_uniform")),
+        "butter": normalize(filters.butterworth(img_bw, 0.1)),
+        "farid": normalize(filters.farid(img_bw))
+        # "roberts": normalize(filters.roberts(img_bw.copy())),
+        # "scharr": normalize(filters.scharr(img_bw.copy())),
+        # "canny": normalize(feature.canny(img_bw.copy()).astype(np.uint8)),
+        # "entropy": normalize(filters.rank.entropy(img_bw.copy(), disk(2))),
+        # "thresh min": normalize((img_bw > filters.threshold_minimum(img_bw)).astype(np.uint8)),
+    })
     # image_hist = clahe(image_bw)
     # image_filt_filt = cv2.bilateralFilter(image_hist, 15, 75, 75)
     
-    DATA = generate_feature_stack(image)
+    # DATA = generate_feature_stack(image)
+    # # show_imgs(DATA)
+    # for key,feature in DATA.items():
+    #     DATA[key] = feature.flatten()
+    # DATA = pd.DataFrame().from_dict(DATA)
+    # DATA = pca_transform(DATA, 3)        
     # show_imgs(DATA)
-    for key,feature in DATA.items():
-        DATA[key] = feature.flatten()
-    DATA = pd.DataFrame().from_dict(DATA)
-    DATA = pca_transform(DATA, 3)        
-    show_imgs(DATA)

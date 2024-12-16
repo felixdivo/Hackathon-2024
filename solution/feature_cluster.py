@@ -92,12 +92,14 @@ def generate_feature_stack(image: np.ndarray) -> np.ndarray:
     
     win_size = (np.array(bw.shape) / 50).astype(np.int16)
     channels = {
-        # "bw": bw, 
-        # "lab_l": l, 
-        "lab_a": x, 
+        "bw": Features.normalize(bw), 
+        "lab_l": Features.normalize(l), 
+        "lab_color": Features.normalize(x+y),
+        "hsv_color": Features.normalize(h+s),
+        # "lab_a": x, 
         # "lab_b": y, 
-        "hsv_h": h, 
-        "hsv_s": s, 
+        # "hsv_h": h, 
+        # "hsv_s": s, 
         # "hsv_v": v, 
         # "rgb_r": r, 
         # "rgb_g": g, 
@@ -123,29 +125,31 @@ def generate_feature_stack(image: np.ndarray) -> np.ndarray:
         dilated = reconstruction(seed_dil, mask_dil, method="dilation")
         eroded = reconstruction(seed_er, mask_er, method="erosion")
         DATA.update({
-            f"{key}": c,
+            # f"{key}": c,
             # f"{key}_std": abs_mean_dev(std_dev(c, win_size)),
-            # f"{key}_laplacian": cv2.Laplacian(c, cv2.CV_64F),
+            # f"{key}_laplacian": cv2.Lap#lacian(c, cv2.CV_64F),
             # f"{key}_binary": Features.normalize(
             #     ski.feature.local_binary_pattern(c, 8,1, method="uniform")
             # ),
-            f"{key}_clahe": equalize_adapthist(c),
+            # f"{key}_clahe": Features.normalize(
+            #     equalize_adapthist(c)
+            # ),
             f"{key}_butter": butter,
             # f"{key}_eroded": Features.normalize(eroded), 
             # f"{key}_dilated": Features.normalize(dilated), 
             f"{key}_farid": Features.normalize(
                 filters.farid(c)
             ),
-            # f"{key}_roberts": normalize(filters.roberts(img_bw.copy())),
+            # f"{key}_roberts": Features.normalize(filters.roberts(img_bw.copy())),
             # f"{key}_scharr": Features.normalize(
             #     filters.scharr(c.copy())
             # ),
             f"{key}_canny": Features.normalize(
                 feature.canny(butter).astype(np.uint8)
             ),
-            f"{key}_entropy": Features.normalize(
-                filters.rank.entropy(c.copy(), disk(3))
-            ),
+            # f"{key}_entropy": Features.normalize(
+            #     filters.rank.entropy(c.copy(), disk(3))
+            # ),
         })
     return DATA
 
@@ -210,6 +214,15 @@ if __name__ == "__main__":
     # for key,feature in DATA.items():
     #     DATA[key] = feature.flatten()
     # DATA = pd.DataFrame().from_dict(DATA)
-    # DATA = pca_transform(DATA, 5)        
+    # DATA = pca_transform(DATA, 2)        
+    # Features.show_imgs(DATA) 
+
+
+    # from skimage.morphology import diameter_closing, diameter_opening, dilation, area_opening
+    # for key, pc in DATA.items():
+    #     X = Features.normalize(area_opening(pc, 4, 2))
+    #     X = Features.normalize(dilation(X, disk(3)).astype(int))
+    #     DATA[key] = X
     # Features.show_imgs(DATA)
 
+    

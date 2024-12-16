@@ -4,7 +4,6 @@ import cv2
 from scipy.ndimage import center_of_mass, distance_transform_edt, rotate
 from scipy.optimize import minimize, OptimizeResult
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 if __name__ == "__main__":
@@ -92,7 +91,6 @@ def rot_inc(
     momentum = (gripper_x - x_coords) * Y_grad - (gripper_y - y_coords) * X_grad
     return np.sum(momentum) / I_gripper
 
-
 def trans_inc(X_grad: np.ndarray, Y_grad: np.ndarray, mask: np.ndarray) -> tuple[int, int]:
     return (
         # np.max(1, int(np.sum(X_grad[mask]) / np.sum(mask))),
@@ -158,9 +156,9 @@ if __name__ == "__main__":
         Y_pos += np.max((int(err_weight  * dy), 1))
         rot +=  err_weight * da
         err = err_func((com_x, com_y), (X_pos, Y_pos), COST_FUNC, mask, I_gripper)
-        cv2.imwrite(SAMPLE_PATH / f"optimization/optimization_{iter_}.png", normalize(part+mask))
+        # cv2.imwrite(SAMPLE_PATH / f"optimization/optimization_{iter_}.png", normalize(part+mask))
 
-    # print(f"FINAL ITERATION RESULTS: dX: {dx}, dY: {dy}, dAng: {da}, Errorfx: {err}")
-    # cv2.imshow("IMAGES", normalize(part+mask)); 
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows() 
+    print(f"FINAL ITERATION RESULTS: dX: {dx}, dY: {dy}, dAng: {da}, Errorfx: {err}")
+    cv2.imshow("IMAGES", cv2.resize(normalize(part+mask), (500, 300))); 
+    cv2.waitKey(0)
+    cv2.destroyAllWindows() 

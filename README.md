@@ -19,7 +19,7 @@ Please add the data from the BWSync into `data/raw/` and `data/evaluate/`.
 
 For example, `data/raw/part_1` now contains `part_1.png` for the part file and `gripper_2.png` for the gripper mask.
 Each parts folder may contain several parts and gripper files, so you need to be able to compute matches for all of them.
-Additionally, `data/evaluate/` also contains solutions for the evaluation.
+Additionally, `evaluate/` also contains solutions for the evaluation.
 
 We will run the final evaluation on a *different* dataset of a similar format, so make sure your solution is general enough to work on unseen data.
 We might assess the effctivenss of your method on more challanging data if that helps to more clearly determine winners.

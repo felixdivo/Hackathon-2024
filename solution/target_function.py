@@ -116,6 +116,7 @@ def optimize(
             jac=None,
             #callback=partial(show_res, gripper, height_map),
             bounds=[(gripper_diag,height_map.shape[1]-gripper_diag),(gripper_diag,height_map.shape[0]-gripper_diag),(-180, 180)],
+            # bounds=[(10, height_map.shape[1]-10), (10,height_map.shape[0]-10), (180, 180)],
             options={"disp": False, "eps": (TRANS_STEP_SCALING, TRANS_STEP_SCALING, rot_step)},
         )
         start_x = res.x[0]
@@ -135,12 +136,14 @@ def show_res(gripper, height_map, res):
 
 
 if __name__ == "__main__":
-    part = cv2.imread(f"{SAMPLE_PATH}/reference24.png")
+    # part = cv2.imread(f"{SAMPLE_PATH}/reference24.png")
+    part = cv2.imread("REF_PART1.png")
     part = cv2.cvtColor(part, cv2.COLOR_RGB2GRAY)
     _, part = cv2.threshold(part, 1, 255, cv2.THRESH_BINARY)
     part = normalize(part)
 
     gripper = cv2.imread(f"{SAMPLE_PATH}/gripper_2.png")
+    part = cv2.resize(part, (part.shape[0]*4, part.shape[1]*4))
     gripper = cv2.cvtColor(gripper, cv2.COLOR_RGB2GRAY)
     gripper[gripper > 0] = 1
 

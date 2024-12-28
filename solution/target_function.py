@@ -1,11 +1,9 @@
-from functools import partial
-
 import cv2
 from scipy.ndimage import center_of_mass, distance_transform_edt, rotate
 from scipy.optimize import minimize, OptimizeResult
 import numpy as np
 import matplotlib.pyplot as plt
-
+import matplotlib.colors as colors
 
 SQRT_2 = np.sqrt(2)
 
@@ -14,9 +12,9 @@ ROT_STEP_SCALING = 2**7
 TRANS_STEP_SCALING = 1
 
 if __name__ == "__main__":
-    from helper import SAMPLE_PATH
+    from helper import SAMPLE_PATH, DATA_PATH
 else:
-    from .helper import SAMPLE_PATH
+    from .helper import SAMPLE_PATH, DATA_PATH
 
 
 def normalize(image: np.ndarray) -> np.ndarray:
@@ -50,14 +48,8 @@ def create_height_maps(
     return maps
 
 
-
-def overlay_gripper(
-    vars: np.ndarray,
-    gripper: np.ndarray,
-    base_img: np.ndarray,
-) -> np.ndarray:
-    x, y, alpha = vars
-    gripper_mask = np.zeros(base_img.shape)
+def create_gripper_mask(shape: list[int], gripper, x, y, alpha):
+    gripper_mask = np.zeros(shape)
     gripper = gripper.astype(bool)
     gripper = rotate(gripper, alpha, reshape=True, order=0)
     gripper_h, gripper_w = gripper.shape
@@ -75,6 +67,17 @@ def overlay_gripper(
         ] = gripper
     else:
         raise NotImplemented()
+    
+    return gripper_mask
+
+
+def overlay_gripper(
+    vars: np.ndarray,
+    gripper: np.ndarray,
+    base_img: np.ndarray,
+) -> np.ndarray:
+    x, y, alpha = vars
+    gripper_mask = create_gripper_mask(base_img.shape, gripper, vars[0], vars[1], vars[2])
 
     result_overlay = (
         base_img * gripper_mask
@@ -95,34 +98,44 @@ def target_function(
 
 
 def optimize(
-    gripper: np.ndarray, height_map: np.ndarray, com_x: int, com_y: int
+    gripper: np.ndarray, height_maps: np.ndarray, com_x: int, com_y: int
 ) -> OptimizeResult:
     gripper_r = np.max(gripper.shape)/2
     gripper_diag = np.linalg.norm(gripper.shape, 2)
     rot_step = np.atan(1/gripper_r) * ROT_STEP_SCALING
-    res = minimize(
-        target_function,
-        np.array([com_x, com_y, 0]),
-        (gripper, height_map),
-        "SLSQP",
-        jac=None,
-        #callback=partial(show_res, gripper, height_map),
-        bounds=[(gripper_diag,height_map.shape[1]-gripper_diag),(gripper_diag,height_map.shape[0]-gripper_diag),(-180, 180)],
-        options={"disp": True, "eps": (TRANS_STEP_SCALING, TRANS_STEP_SCALING, rot_step)},
-    )
+
+    start_x = com_x
+    start_y = com_y
+
+    for height_map in height_maps:
+        res = minimize(
+            target_function,
+            np.array([start_x, start_y, 0]),
+            (gripper, height_map),
+            "SLSQP",
+            jac=None,
+            #callback=partial(show_res, gripper, height_map),
+            bounds=[(gripper_diag,height_map.shape[1]-gripper_diag),(gripper_diag,height_map.shape[0]-gripper_diag),(-180, 180)],
+            options={"disp": False, "eps": (TRANS_STEP_SCALING, TRANS_STEP_SCALING, rot_step)},
+        )
+        start_x = res.x[0]
+        start_y = res.x[1]
     return res
 
 
 def show_res(gripper, height_map, res):
     fig, ax = plt.subplots(2)
-    ax[0].contourf(height_map, vmin=0, vmax=10)
-    out = overlay_gripper(np.floor(np.array([res[0], res[1], res[2]])).astype(int), gripper, height_map)
-    ax[1].contourf(out, vmin=0, vmax=10)
+    x, y, alpha = res
+    gripper_mask = create_gripper_mask(height_map.shape, gripper, int(x), int(y), alpha)
+
+    print(np.max(height_map))
+    ax[0].contourf(height_map)
+    ax[1].contourf(gripper_mask)
     plt.show()
 
 
 if __name__ == "__main__":
-    part = cv2.imread(f"{SAMPLE_PATH}/reference23.png")
+    part = cv2.imread(f"{SAMPLE_PATH}/reference24.png")
     part = cv2.cvtColor(part, cv2.COLOR_RGB2GRAY)
     _, part = cv2.threshold(part, 1, 255, cv2.THRESH_BINARY)
     part = normalize(part)
@@ -136,18 +149,14 @@ if __name__ == "__main__":
         part, 
         com_x, 
         com_y,
-        [0.01, 0.1, 0.1],
-        [0.5, 0.5, 0.5],
-        [0.01, 0.01, 0.01],
-        [1.5, 1.75, 2],
+        [1, 10, 100],
+        [1, 1.25, 1.5],
+        [1, 1, 1],
+        [2, 3, 5],
     )
-    # grad_map = np.stack(np.gradient(target_map))
 
-
-    res = optimize(gripper, height_maps[0], com_x, com_y)
+    res = optimize(gripper, height_maps, com_x, com_y)
     show_res(gripper, height_maps[0], res.x)
-
-
 
 
 

@@ -12,7 +12,7 @@ def main():
     parser.add_argument(
         "--command",
         type=str,
-        default="python solution/main.py",
+        default="python ../solution/main.py",
         help="Command to run your program. See the README for the exact interface.",
     )
     args = parser.parse_args()

@@ -41,6 +41,8 @@ def main():
     ):
         part_image_path = Path(row["part"])
         gripper_image_path = Path(row["gripper"])
+        print(f"Checking if file exists: {part_image_path}")
+        print(f"File exists? {part_image_path.exists()} | Path: {part_image_path.resolve()}")
         assert part_image_path.exists(), f"{part_image_path} does not exist"
         assert gripper_image_path.exists(), f"{gripper_image_path} does not exist"
         x, y, angle = compute_amazing_solution(part_image_path, gripper_image_path)

@@ -166,7 +166,13 @@ def main():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        print(f"Score: {calculate_score(mask_image, x_output, y_output, intersection=intersect)}")
+        score = calculate_score(mask_image, x_output, y_output, intersection=intersect)
+        outputs.loc[index, "score"] = score
+
+    # Write the updated DataFrame back to the output file
+    outputs.to_csv(output_file, index=False)
+
+    print(f"Average score: {outputs.loc["score"]}")
 
 
 if __name__ == "__main__":

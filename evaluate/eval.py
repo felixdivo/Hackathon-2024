@@ -93,16 +93,21 @@ def calculate_score(part_image, x, y, intersection=False):
     :param x: Horizontal offset (pixels) for gripper placement on the part.
     :param y: Vertical offset (pixels) for gripper placement on the part.
     :param intersection: Boolean flag indicating if the gripper intersects with holes.
-    :return: Score of the gripper placement on the part.
+    :return: Score of the gripper placement on the part. In Percent of part diagonal.
     """
-    if intersection:
-        # Constraint nicht erfüllt. maximale Distanz punkte!
-        return np.inf
 
+    # get part image shape
     ph, pw = part_image.shape[:2]
 
+    if intersection:
+        # Constraint nicht erfüllt. maximale Distanz punkte!
+        return 1
+
+    ph, pw = part_image.shape[:2]
+    diag = np.sqrt(ph**2 + pw**2)
+
     # Calculate the score
-    return np.sqrt((x - (pw / 2)) ** 2 + (y - (ph / 2)) ** 2)
+    return np.sqrt((x - (pw / 2)) ** 2 + (y - (ph / 2)) ** 2) / diag
 
 
 def main():
@@ -192,13 +197,14 @@ def main():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        score = calculate_score(mask_image, x_output, y_output, intersection=intersect)
-        outputs.loc[index, "score"] = score
+        outputs.loc[index, "score"] = calculate_score(
+            mask_image, x_output, y_output, intersection=intersect
+        )
 
     # Write the updated DataFrame back to the output file
     outputs.to_csv(output_file, index=False)
 
-    print(f"Average score: {outputs.loc["score"]}")
+    print(f"Average score: {outputs["score"].mean()}")
 
 
 if __name__ == "__main__":

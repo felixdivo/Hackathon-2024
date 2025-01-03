@@ -98,6 +98,11 @@ def main():
         default="python solution/main.py",
         help="Command to run your program. See the README for the exact interface.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode, which displays the overlay images.",
+    )
     args = parser.parse_args()
     command = args.command.strip()
     if not command:
@@ -156,13 +161,12 @@ def main():
         res, intersect = overlay_gripper_on_part(gripper_image=gripper_image,part_image=mask_image, x=x_output, y=y_output, angle=angle_output)
 
         # Display the resulting overlay, you may comment this out.
-        cv2.imshow("Overlay part and gripper", res)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        if args.debug:
+            cv2.imshow("Overlay part and gripper", res)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
 
-        print("Evaluation result: ----------")
         print(f"Score: {calculate_score(mask_image, x_output, y_output, intersection=intersect)}")
-        
 
 
 if __name__ == "__main__":

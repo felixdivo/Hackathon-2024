@@ -26,7 +26,7 @@ We might assess the effctivenss of your method on more challanging data if that 
 
 ### Conventions in the data
 
-A pixel in the mask and gripper files corresponds to 1mm in the real world. The gripper SVGs are also scaled accordingly.
+A pixel in the mask and gripper files corresponds to 1mm in the real world. The gripper pngs are also scaled accordingly.
 
 The coordinates in an image are given in the following way:
 
@@ -57,8 +57,8 @@ The input file will look like this:
 
 ```csv
 part,gripper
-part_1.png,gripper_5.svg
-part_42.png,gripper_1.svg
+part_1.png,gripper_5.png
+part_42.png,gripper_1.png
 ```
 
 Secondly, it receives an argument with a path to a folder where the results should be saved.
@@ -66,8 +66,8 @@ The output must look like this:
 
 ```csv
 part,gripper,x,y,angle
-part_1.png,gripper_5.svg,100,200,45
-part_42.png,gripper_1.svg,300,400,90
+part_1.png,gripper_5.png,100,200,45
+part_42.png,gripper_1.png,300,400,90
 ```
 
 You are more than welcome to add visualization images as well.

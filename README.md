@@ -134,6 +134,9 @@ Where:
 Please submit your final solution by providing a link to a repository.
 It may be a git repository on GitHub/GitLab/... or provide a ZIP file containing your code.
 
+You can send us the URL by writing a message in your team channel on Discord.
+Make sure to ping us by including `@Veranstalter`.
+
 **Important:** Make sure your README.md follows this template:
 
 ```markdown

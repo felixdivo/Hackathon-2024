@@ -14,8 +14,8 @@ def compute_amazing_solution(
     :param gripper_image_path: Path to the gripper image
     :return: The x, y and angle of the gripper
     """
-
-    return 100.1, 95, 91.2
+    
+    return 146/2, 235/2 - 20, 0
 
 
 def main():

@@ -1,3 +1,4 @@
-part,gripper,x,y,angle
-data/dummy/part_1/part_1.png,data/dummy/part_1/gripper_2.svg,100,200,45
-data/dummy/part_2/part_300.png,data/dummy/part_2/gripper_256.svg,300,400,90
+part,gripper,mask
+data/dummy/part_1/part_1.png,data/dummy/part_1/gripper_2.png,data/dummy/part_1/binary_mask_1.png
+data/dummy/part_2/part_2.png,data/dummy/part_2/gripper_1.png,data/dummy/part_2/binary_mask_2.png
+

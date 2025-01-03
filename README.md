@@ -26,7 +26,7 @@ We might assess the effctivenss of your method on more challanging data if that 
 
 ### Conventions in the data
 
-A pixel in the mask and gripper files corresponds to 1mm in the real world. The gripper SVGs are also scaled accordingly.
+A pixel in the mask and gripper files corresponds to 1mm in the real world. The gripper pngs are also scaled accordingly.
 
 The coordinates in an image are given in the following way:
 
@@ -57,8 +57,8 @@ The input file will look like this:
 
 ```csv
 part,gripper
-part_1.png,gripper_5.svg
-part_42.png,gripper_1.svg
+part_1.png,gripper_5.png
+part_42.png,gripper_1.png
 ```
 
 Secondly, it receives an argument with a path to a folder where the results should be saved.
@@ -66,8 +66,8 @@ The output must look like this:
 
 ```csv
 part,gripper,x,y,angle
-part_1.png,gripper_5.svg,100,200,45
-part_42.png,gripper_1.svg,300,400,90
+part_1.png,gripper_5.png,100,200,45
+part_42.png,gripper_1.png,300,400,90
 ```
 
 You are more than welcome to add visualization images as well.
@@ -109,7 +109,6 @@ python evaluate/eval.py 'super_fast_assembly_solution'
 
 <img src="doc/proki-evaluation-definition.png" alt="The evaluation metric" width="600px" /> 
 
-
 First and foremost: Please document which design decisions you took in solving the problem! The quality of your documentation and your design decisions will be the tie breaker between solutions with similar quality.
 
 The quantitative evaluation will be as follows:
@@ -125,16 +124,56 @@ $$\text{Minimize: } \sqrt{(x_{gripper} - x_{part})^2 + (y_{gripper} - y_{part})^
 Subject to the constraint:  
 $$\text{Intersection}(\text{Gripper Area}, \text{Part Edges or Holes}) = 0$$
 
-
 Where:
 - $\((x_{gripper}, y_{gripper})\)$ are the coordinates of the gripper center.
 - $\((x_{part}, y_{part})\)$ are the coordinates of the part center.
 - The intersection condition ensures that no part of the gripper overlaps with the edges or holes of the part. This is calculated using a part mask and geometric intersection checks. It is also why we need the angle in your results.
 
+### Submission of Your Solution
+
+Please submit your final solution by providing a link to a repository.
+It may be a git repository on GitHub/GitLab/... or provide a ZIP file containing your code.
+
+You can send us the URL by writing a message in your team channel on Discord.
+Make sure to ping us by including `@Veranstalter`.
+
+**Important:** Make sure your README.md follows this template:
+
+```markdown
+# Hackathon 2024 - Submission of Group *// Group Name //*
+
+Team members:
+    - // Alice Lastname //
+    - // Bob Secondname //
+    - ...
+
+## Description
+// A very brief description of your solution, e.g., five sentences //
+
+## How to Run
+// How to run your code, e.g., `python solution/main.py path/to/input/tasks.csv output/solutions.csv` //
+
+## ... and other things you want to tell us
+// optional, e.g., design decisions, challenges you faced, etc. //
+```
+
+Replace all `// ... //` placeholders with your information.
+
+In particular, ensure that the `How to Run` section is up to date with the current state of your code.
+Here are a few hints on that:
+- You should not change any files under `evaluate/` in your submission.
+- If your `solution/main.py` is not the entry point, please adjust the path accordingly, e.g., to `solution_other/fancy_main.py`. Then, you should still be able to run `python evaluate/eval.py --command 'python solution_other/fancy_main.py'`.
+- You can verify that all dependencies are easily installable and everything runs fine by running these Docker commands: `docker build . -t my-group` and `docker run -t my-group python evaluate/eval.py --command 'python solution_other/fancy_main.py'`. This will ensure that we can run your code without any issues.
+- When you use a custom Dockerfile, please provide `docker build` and `docker run` commands that we can use to execute your solution.
+
+Generally, document your code and make it easy for others to understand.
+
+See below for information on the license you should use.
 
 ## License
 
 All resources in this repository are licensed under the MIT License. See the [LICENSE](LICENSE) for more information.
+This explicitly excludes the data you received for the challenge. You may not share the data with others or use it for other purposes than the Hackathon 2024.
 
 We expect you to also license your code under the MIT License when submitting it.
 

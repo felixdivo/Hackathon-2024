@@ -78,16 +78,21 @@ def calculate_score(part_image, x, y, intersection = False):
     :param x: Horizontal offset (pixels) for gripper placement on the part.
     :param y: Vertical offset (pixels) for gripper placement on the part.
     :param intersection: Boolean flag indicating if the gripper intersects with holes.
-    :return: Score of the gripper placement on the part.
+    :return: Score of the gripper placement on the part. In Percent of part diagonal.
     """
+
+    # get part image shape
+    ph, pw = part_image.shape[:2]
+
     if intersection:
         # Constraint nicht erfüllt. maximale Distanz punkte!
-        return np.inf
+        return 1
 
     ph, pw = part_image.shape[:2]
+    diag = np.sqrt(ph**2 + pw**2)
     
     # Calculate the score
-    return np.sqrt((x-(pw/2))**2 + (y-(ph/2))**2)
+    return np.sqrt((x-(pw/2))**2 + (y-(ph/2))**2) / diag
 
 def main():
     # Parse the command line arguments
@@ -150,7 +155,7 @@ def main():
         # Extract x, y, and angle from output_row
         x_output = int(output_row["x"])
         y_output = int(output_row["y"])
-        angle_output = int(output_row["angle"])
+        angle_output = -int(output_row["angle"])
         
         # Overlay gripper on part
         res, intersect = overlay_gripper_on_part(gripper_image=gripper_image,part_image=mask_image, x=x_output, y=y_output, angle=angle_output)
@@ -160,10 +165,11 @@ def main():
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-        print("Evaluation result: ----------")
-        print(f"Score: {calculate_score(mask_image, x_output, y_output, intersection=intersect)}")
-        
+        score = calculate_score(mask_image, x_output, y_output, intersection=intersect)
+        outputs.loc[index, "score"] = score
 
+    # Write the updated DataFrame back to the output file
+    outputs.to_csv(output_file, index=False)
 
 if __name__ == "__main__":
     main()
